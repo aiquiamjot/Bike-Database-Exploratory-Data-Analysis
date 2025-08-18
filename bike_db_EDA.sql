@@ -196,3 +196,27 @@ FROM rank_categories
 WHERE category_rank <= 5
 ORDER BY store_name
 ;
+
+
+
+-- Which customers made the most orders?
+
+SELECT *
+FROM 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
