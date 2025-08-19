@@ -201,21 +201,104 @@ ORDER BY store_name
 
 -- Which customers made the most orders?
 
-SELECT *
-FROM 
+WITH get_total_orders AS (
+SELECT o.customer_id, 
+	first_name, 
+    last_name,
+	COUNT(o.order_id) AS total_order
+FROM orders o
+JOIN customers c
+	ON c.customer_id = o.customer_id
+GROUP BY o.customer_id, first_name, last_name
+)
+SELECT customer_id, first_name, last_name, MAX(total_order) AS highest_total_order
+FROM get_total_orders
+WHERE total_order = (SELECT MAX(total_order) FROM get_total_orders)
+GROUP BY customer_id, first_name, last_name
+;
+
+
+
+-- Which customers spent the most? List top 10.
+
+WITH get_total_customer_cost AS (
+SELECT o.customer_id, 
+	product_id, 
+	quantity * (list_price * (1 - discount)) AS cost,
+    first_name, 
+    last_name
+FROM order_items oi
+JOIN orders o
+	ON oi.order_id = o.order_id
+JOIN customers c
+	ON o.customer_id = c.customer_id 
+)
+SELECT customer_id, first_name, last_name, SUM(cost) AS total_cost
+FROM get_total_customer_cost
+GROUP BY customer_id, first_name, last_name
+ORDER BY SUM(cost) DESC LIMIT 10
+;
+
+
+
+-- What is the average order value (AOV) per customer?
+
+WITH get_total_orders AS (
+SELECT o.customer_id, 
+	first_name,
+    last_name,
+	COUNT(o.order_id) AS total_order
+FROM orders o
+JOIN customers c
+	ON c.customer_id = o.customer_id
+GROUP BY o.customer_id, first_name, last_name
+),
+get_total_cost AS (
+SELECT o.customer_id,
+	SUM(quantity * (list_price * (1 - discount))) AS total_cost
+FROM order_items oi
+JOIN orders o
+	ON oi.order_id = o.order_id
+JOIN customers c
+	ON o.customer_id = c.customer_id
+GROUP BY o.customer_id
+) 
+SELECT gto.customer_id, 
+	first_name, 
+	last_name, 
+	total_order,
+    total_cost,
+    ROUND(total_cost / total_order, 2) AS average_order_value
+FROM get_total_orders gto
+JOIN get_total_cost gtc
+	ON gto.customer_id = gtc.customer_id
+-- WHERE total_order = (SELECT MAX(total_order) FROM get_total_orders) # uncomment to get customers with highest total transactions
+ORDER BY (total_cost / total_order) DESC
+;
+
+
+
+-- Which products have the highest revenue per unit sold (premium items)?
+
+
+
+
+-- What is the average discount per category?
 
 
 
 
 
 
+-- Who are top 10 customers by lifetime value (LTV)? 
+-- A basic calculation of LTV involves multiplying the average purchase value
+-- by the average number of purchases per year and then by the average customer lifespan
 
 
 
 
 
-
-
+-- Which product categories are most common in repeat orders?
 
 
 
