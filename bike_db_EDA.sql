@@ -331,17 +331,38 @@ ORDER BY average_discount DESC
 
 
 
-
--- Who are top 10 customers by lifetime value (LTV)? 
--- A basic calculation of LTV involves multiplying the average purchase value
--- by the average number of purchases per year and then by the average customer lifespan
-
-
-
-
-
 -- Which product categories are most common in repeat orders?
 
+WITH get_row_num_order AS (
+SELECT 
+	customer_id, 
+	order_id,
+	order_date,
+	ROW_NUMBER() OVER(PARTITION BY customer_id ORDER BY order_date) AS row_num_order
+FROM orders
+),
+get_repeat_categories AS (
+SELECT 
+	grno.customer_id, 
+	grno.order_id,
+    order_date,
+    category_name
+FROM get_row_num_order grno
+JOIN order_items oi
+	ON grno.order_id = oi.order_id
+JOIN products p
+	ON oi.product_id = p.product_id
+JOIN categories cat 
+	ON p.category_id = cat.category_id
+WHERE row_num_order > 1
+)
+SELECT 
+	category_name,
+	COUNT(*) AS total_repeat_sales
+FROM get_repeat_categories
+GROUP BY category_name
+ORDER BY total_repeat_sales DESC
+;
 
 
 
@@ -421,10 +442,5 @@ LEFT JOIN order_items oi
 WHERE order_id IS NULL
 ORDER BY p.product_name
 ;
-
-
-
-
-
 
 
