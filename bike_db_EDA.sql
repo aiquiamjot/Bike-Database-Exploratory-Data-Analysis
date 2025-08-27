@@ -444,3 +444,38 @@ ORDER BY p.product_name
 ;
 
 
+/*
+=================================================================
+======================== CUSTOMER REPORT ========================
+=================================================================
+
+Purpose: 
+	- This report consolidates key customer metrics and behaviors
+    
+Highlights:
+1. gather essential fields such as customer id, and customer name
+2. segment customers into categories: VIP, regular, new
+	VIP = customer life span is greater than 12 months, and spends more than 10000 USD
+    Regular = customer life span is greater than 12 months, and spends less than 10000 USD
+    New = customer life span is less than 12 months
+3. aggregates customer-level metrics:
+	- total orders
+    - total revenue
+    - total quantity purchased
+    - total products
+    - life span (in months)
+    - total on-time deliveries
+    - total late deliveries
+    - total in-store purchases
+4. calculate valuable KPIs:
+	- recency (months since last order)
+    - average order value
+    - average monthly spend
+=================================================================
+*/
+
+SELECT *
+FROM orders o
+JOIN customers c 
+	ON o.customer_id = c.customer_id
+
