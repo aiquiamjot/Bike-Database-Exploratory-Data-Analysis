@@ -454,19 +454,19 @@ Purpose:
     
 Highlights:
 1. gather essential fields such as customer id, and customer name
+
 2. segment customers into categories: VIP, regular, new
-	VIP = customer life span is greater than 12 months, and spends more than 10000 USD
-    Regular = customer life span is greater than 12 months, and spends less than 10000 USD
-    New = customer life span is less than 12 months
+	VIP = customer life span is greater than 18 months, and spends more than 10000 USD
+    Regular = customer life span is greater than 18 months, and spends less than 10000 USD
+    New = customer life span is less than 18 months
+    
 3. aggregates customer-level metrics:
 	- total orders
     - total revenue
     - total quantity purchased
     - total products
     - life span (in months)
-    - total on-time deliveries
-    - total late deliveries
-    - total in-store purchases
+    
 4. calculate valuable KPIs:
 	- recency (months since last order)
     - average order value
@@ -474,8 +474,103 @@ Highlights:
 =================================================================
 */
 
-SELECT *
+CREATE VIEW customer_report AS
+WITH get_relevant_columns AS (
+SELECT 
+	o.customer_id,
+	CONCAT(c.first_name, ' ', c.last_name) AS customer_name,
+	o.order_id,
+	o.order_date,
+	oi.product_id,
+	oi.quantity,
+	oi.list_price,
+	oi.discount,
+    quantity * (list_price * (1 - discount)) AS revenue
 FROM orders o
 JOIN customers c 
 	ON o.customer_id = c.customer_id
+JOIN order_items oi
+	ON o.order_id = oi.order_id
+), get_aggregates AS (
+SELECT 
+	customer_id,
+    customer_name,
+    COUNT(DISTINCT order_id) AS total_orders,
+    SUM(revenue) AS total_revenue,
+    SUM(quantity) AS total_quantity_purchased,
+    COUNT(DISTINCT product_id) AS total_products,
+    TIMESTAMPDIFF(MONTH, MIN(order_date), MAX(order_date)) AS life_span,
+    TIMESTAMPDIFF(MONTH, MAX(order_date), CURRENT_DATE()) AS recency
+FROM get_relevant_columns
+GROUP BY 
+	customer_id,
+    customer_name
+)
+SELECT
+	customer_id,
+    customer_name,
+	CASE
+		WHEN life_span >= 18 AND total_revenue >= 10000 THEN 'VIP'
+        WHEN life_span >= 18 AND total_revenue < 10000 THEN 'Regular'
+        ELSE 'New'
+	END AS customer_label,
+    total_orders,
+    total_revenue,
+    total_quantity_purchased,
+    total_products,
+    life_span,
+    recency,
+	total_revenue / total_orders AS avg_order_value,
+    total_revenue / life_span AS avg_monthly_spend
+FROM get_aggregates
+;
+
+SELECT *
+FROM customer_report;
+
+
+
+-- view metrics of VIPs, regulars, and new customers
+
+SELECT 
+	customer_label,
+	COUNT(customer_id) AS total_customers,
+    ROUND(SUM(total_revenue), 2) AS total_revenue,
+    SUM(total_orders) AS total_orders,
+    AVG(avg_monthly_spend) AS avg_monthly_spend
+FROM customer_report
+GROUP BY customer_label
+ORDER BY total_customers DESC
+;
+
+
+
+-- determine the on-time deliveries, late deliveries, and in-store purchases for each store
+
+WITH get_delivery_status AS (
+SELECT 
+	s.store_name,
+    o.order_id,
+    o.order_date,
+    o.required_date,
+    o.shipped_date,
+    CASE
+		WHEN shipped_date > required_date THEN 'Late'
+        WHEN shipped_date <= required_date THEN 'On Time'
+        ELSE 'In-store Purchase'
+    END AS delivery_status
+FROM orders o
+JOIN stores s 
+	ON o.store_id = s.store_id
+)
+SELECT 
+	store_name,
+    SUM(CASE WHEN delivery_status = 'On Time' THEN 1 ELSE 0 END) AS On_time,
+    SUM(CASE WHEN delivery_status = 'Late' THEN 1 ELSE 0 END) AS Late,
+    SUM(CASE WHEN delivery_status = 'In-store Purchase' THEN 1 ELSE 0 END) AS In_store_purchase,
+    ROUND(SUM(CASE WHEN delivery_status = 'Late' THEN 1 ELSE 0 END) / SUM(CASE WHEN delivery_status = 'On Time' THEN 1 ELSE 0 END) * 100.0, 2) AS late_percent
+FROM get_delivery_status
+GROUP BY store_name
+;
+
 
